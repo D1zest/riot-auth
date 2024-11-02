@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import requests
 import uuid
-import urllib.parse
-import threading
 import time
 
 app = Flask(__name__)
@@ -10,13 +8,13 @@ app = Flask(__name__)
 TOKEN_RETRY_INTERVAL = 2  # Retry every 2 seconds
 QR_REGENERATION_INTERVAL = 60  # Regenerate QR after 1 minute
 
-def create_new_session():
+def new_session():
     session = requests.Session()
     return session, str(uuid.uuid4())
 
-def generate_qr_code():
+def login_url():
     # Create a new session and SDK SID for each QR generation
-    session, sdk_sid = create_new_session()
+    session, sdk_sid = new_session()
     
     trace_id = uuid.uuid4().hex
     parent_id = uuid.uuid4().hex[:16]
@@ -102,14 +100,9 @@ def generate_qr_code():
         return None, "필수 데이터가 응답에 없습니다."
     
     login_url = f'https://qrlogin.riotgames.com/riotmobile/?cluster={cluster}&suuid={suuid}&timestamp={timestamp}&utm_source=riotclient&utm_medium=client&utm_campaign=qrlogin-riotmobile'
-    qr_login_url = urllib.parse.quote(login_url)
     
-    qr_code_url = f'https://my-qr-server.vercel.app/g?size=250*250&data={qr_login_url}'
-    
-    # Return the session along with other data to be used in token checking
     return {
         'login_url': login_url,
-        'qr_code_url': qr_code_url,
         'session': session,
         'sdk_sid': sdk_sid
     }, None
@@ -138,10 +131,10 @@ def get_token(session, sdk_sid):
 # Store the current session data globally
 current_session_data = None
 
-@app.route('/generate_qr', methods=['POST'])
-def generate_qr():
+@app.route('/login_url', methods=['POST'])
+def login_url_route():
     global current_session_data
-    result, error = generate_qr_code()
+    result, error = login_url()
     if error:
         return jsonify({'error': error}), 400
     
@@ -152,8 +145,7 @@ def generate_qr():
     }
     
     return jsonify({
-        'login_url': result['login_url'],
-        'qr_code_url': result['qr_code_url']
+        'login_url': result['login_url']
     })
 
 @app.route('/get_token', methods=['POST'])
@@ -169,22 +161,19 @@ def fetch_token():
     )
     
     if error:
-        new_qr, qr_error = generate_qr_code()
-        if qr_error:
-            return jsonify({'error': qr_error}), 400
+        new_url, url_error = login_url()
+        if url_error:
+            return jsonify({'error': url_error}), 400
         
         # Update the global session data
         current_session_data = {
-            'session': new_qr['session'],
-            'sdk_sid': new_qr['sdk_sid']
+            'session': new_url['session'],
+            'sdk_sid': new_url['sdk_sid']
         }
         
         return jsonify({
             'error': error, 
-            'new_qr': {
-                'login_url': new_qr['login_url'],
-                'qr_code_url': new_qr['qr_code_url']
-            }
+            'new_url': new_url['login_url']
         })
     
     return jsonify(token_data)
