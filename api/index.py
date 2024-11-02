@@ -5,15 +5,14 @@ import time
 
 app = Flask(__name__)
 
-TOKEN_RETRY_INTERVAL = 2  # Retry every 2 seconds
-QR_REGENERATION_INTERVAL = 60  # Regenerate QR after 1 minute
+TOKEN_RETRY_INTERVAL = 2
+QR_REGENERATION_INTERVAL = 60
 
 def new_session():
     session = requests.Session()
     return session, str(uuid.uuid4())
 
 def login_url():
-    # Create a new session and SDK SID for each QR generation
     session, sdk_sid = new_session()
     
     trace_id = uuid.uuid4().hex
@@ -128,7 +127,6 @@ def get_token(session, sdk_sid):
         time.sleep(TOKEN_RETRY_INTERVAL)
     return None, "1분 경과: QR 코드를 다시 생성합니다."
 
-# Store the current session data globally
 current_session_data = None
 
 @app.route('/login_url', methods=['POST'])
@@ -138,7 +136,6 @@ def login_url_route():
     if error:
         return jsonify({'error': error}), 400
     
-    # Store the session data globally
     current_session_data = {
         'session': result['session'],
         'sdk_sid': result['sdk_sid']
@@ -165,7 +162,6 @@ def fetch_token():
         if url_error:
             return jsonify({'error': url_error}), 400
         
-        # Update the global session data
         current_session_data = {
             'session': new_url['session'],
             'sdk_sid': new_url['sdk_sid']
