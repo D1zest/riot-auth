@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Riot Games QR 로그인</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 90%;
+        }
+        #qr-image {
+            max-width: 250px;
+            margin: 20px auto;
+        }
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        #timer {
+            color: red;
+            margin-top: 10px;
+        }
+        #login-url {
+            margin: 20px 0;
+            word-break: break-all;
+        }
+        #login-url a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        #login-url a:hover {
+            text-decoration: underline;
+        }
+        #response-data {
+            margin-top: 20px;
+            text-align: left;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+            display: none;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .response-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Riot Games QR 로그인</h2>
+        <div id="qr-container">
+            <img id="qr-image" src="" alt="QR 코드">
+        </div>
+        <div id="login-url"></div>
+        <div id="status"></div>
+        <div id="timer"></div>
+        <div id="response-data">
+            <div class="response-title">응답 데이터:</div>
+            <pre id="response-content"></pre>
+        </div>
+    </div>
+    
+    <script>
+        let qrTimer;
+        let tokenCheckTimer;
+        const qrImage = document.getElementById('qr-image');
+        const statusEl = document.getElementById('status');
+        const timerEl = document.getElementById('timer');
+        const loginUrlEl = document.getElementById('login-url');
+        const responseDataEl = document.getElementById('response-data');
+        const responseContentEl = document.getElementById('response-content');
+
+        function generateQR() {
+            statusEl.textContent = 'QR 코드 생성 중...';
+            axios.post('/generate_qr')
+                .then(response => {
+                    qrImage.src = response.data.qr_code_url;
+                    loginUrlEl.innerHTML = `<a href="${response.data.login_url}" target="_blank">직접 로그인하기</a>`;
+                    statusEl.textContent = 'QR 코드를 스캔해주세요';
+                    startQRTimer();
+                    checkToken();
+                })
+                .catch(error => {
+                    statusEl.textContent = 'QR 코드 생성 실패: ' + error.response.data.error;
+                });
+        }
+
+        function startQRTimer() {
+            let remainingTime = 60;
+            clearInterval(qrTimer);
+            qrTimer = setInterval(() => {
+                remainingTime--;
+                timerEl.textContent = `남은 시간: ${remainingTime}초`;
+                
+                if (remainingTime <= 0) {
+                    clearInterval(qrTimer);
+                    clearInterval(tokenCheckTimer);
+                    generateQR();
+                }
+            }, 1000);
+        }
+
+        function checkToken() {
+            clearInterval(tokenCheckTimer);
+            tokenCheckTimer = setInterval(() => {
+                axios.post('/get_token')
+                    .then(response => {
+                        if (response.data.type === 'success') {
+                            clearInterval(qrTimer);
+                            clearInterval(tokenCheckTimer);
+                            statusEl.textContent = '로그인 성공!';
+                            responseDataEl.style.display = 'block';
+                            responseContentEl.textContent = JSON.stringify(response.data, null, 2);
+                        }
+                        else if (response.data.error && response.data.new_qr) {
+                            qrImage.src = response.data.new_qr.qr_code_url;
+                            loginUrlEl.innerHTML = `<a href="${response.data.new_qr.login_url}" target="_blank">직접 로그인하기</a>`;
+                            statusEl.textContent = 'QR 코드 만료. 새 QR 코드가 생성되었습니다.';
+                        }
+                    })
+                    .catch(error => {
+                        statusEl.textContent = '토큰 확인 중 오류 발생: ' + error;
+                    });
+            }, 2000);
+        }
+
+        generateQR();
+    </script>
+</body>
+</html>
