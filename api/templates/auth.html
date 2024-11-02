@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Riot Games QR 로그인</title>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -23,7 +24,7 @@
             max-width: 600px;
             width: 90%;
         }
-        #qr-image {
+        #qr-canvas {
             max-width: 250px;
             margin: 20px auto;
         }
@@ -67,7 +68,7 @@
     <div class="container">
         <h2>Riot Games QR 로그인</h2>
         <div id="qr-container">
-            <img id="qr-image" src="" alt="QR 코드">
+            <canvas id="qr-canvas"></canvas>
         </div>
         <div id="login-url"></div>
         <div id="status"></div>
@@ -81,19 +82,26 @@
     <script>
         let qrTimer;
         let tokenCheckTimer;
-        const qrImage = document.getElementById('qr-image');
+        const qrCanvas = document.getElementById('qr-canvas');
         const statusEl = document.getElementById('status');
         const timerEl = document.getElementById('timer');
         const loginUrlEl = document.getElementById('login-url');
         const responseDataEl = document.getElementById('response-data');
         const responseContentEl = document.getElementById('response-content');
 
-        function generateQR() {
+        function LoginUrl() {
             statusEl.textContent = 'QR 코드 생성 중...';
-            axios.post('/generate_qr')
+            axios.post('/login_url')
                 .then(response => {
-                    qrImage.src = response.data.qr_code_url;
-                    loginUrlEl.innerHTML = `<a href="${response.data.login_url}" target="_blank">직접 로그인하기</a>`;
+                    const loginUrl = response.data.login_url;
+                    // Generate QR code
+                    QRCode.toCanvas(qrCanvas, loginUrl, { width: 250 }, function (error) {
+                        if (error) {
+                            statusEl.textContent = 'QR 코드 생성 실패';
+                            console.error(error);
+                        }
+                    });
+                    loginUrlEl.innerHTML = `<a href="${loginUrl}" target="_blank">직접 로그인하기</a>`;
                     statusEl.textContent = 'QR 코드를 스캔해주세요';
                     startQRTimer();
                     checkToken();
@@ -113,7 +121,7 @@
                 if (remainingTime <= 0) {
                     clearInterval(qrTimer);
                     clearInterval(tokenCheckTimer);
-                    generateQR();
+                    LoginUrl();
                 }
             }, 1000);
         }
@@ -130,10 +138,17 @@
                             responseDataEl.style.display = 'block';
                             responseContentEl.textContent = JSON.stringify(response.data, null, 2);
                         }
-                        else if (response.data.error && response.data.new_qr) {
-                            qrImage.src = response.data.new_qr.qr_code_url;
-                            loginUrlEl.innerHTML = `<a href="${response.data.new_qr.login_url}" target="_blank">직접 로그인하기</a>`;
+                        else if (response.data.error && response.data.new_url) {
+                            // Generate new QR code
+                            QRCode.toCanvas(qrCanvas, response.data.new_url, { width: 250 }, function (error) {
+                                if (error) {
+                                    statusEl.textContent = 'QR 코드 생성 실패';
+                                    console.error(error);
+                                }
+                            });
+                            loginUrlEl.innerHTML = `<a href="${response.data.new_url}" target="_blank">직접 로그인하기</a>`;
                             statusEl.textContent = 'QR 코드 만료. 새 QR 코드가 생성되었습니다.';
+                            startQRTimer();
                         }
                     })
                     .catch(error => {
@@ -142,7 +157,7 @@
             }, 2000);
         }
 
-        generateQR();
+        LoginUrl();
     </script>
 </body>
 </html>
