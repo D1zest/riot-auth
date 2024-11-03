@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Riot Games QR 로그인</title>
+    <title>{{title}}</title>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <style>
@@ -66,7 +66,7 @@
 </head>
 <body>
     <div class="container">
-        <h2>Riot Games QR 로그인</h2>
+        <h2>{{dis}}</h2>
         <div id="qr-container">
             <canvas id="qr-canvas"></canvas>
         </div>
@@ -90,24 +90,23 @@
         const responseContentEl = document.getElementById('response-content');
 
         function LoginUrl() {
-            statusEl.textContent = 'QR 코드 생성 중...';
+            statusEl.textContent = '{{wait}}';
             axios.post('/login_url')
                 .then(response => {
                     const loginUrl = response.data.login_url;
-                    // Generate QR code
                     QRCode.toCanvas(qrCanvas, loginUrl, { width: 250 }, function (error) {
                         if (error) {
-                            statusEl.textContent = 'QR 코드 생성 실패';
+                            statusEl.textContent = '{{fail}}';
                             console.error(error);
                         }
                     });
-                    loginUrlEl.innerHTML = `<a href="${loginUrl}" target="_blank">직접 로그인하기</a>`;
-                    statusEl.textContent = 'QR 코드를 스캔해주세요';
+                    loginUrlEl.innerHTML = `<a href="${loginUrl}" target="_blank">{{md}}</a>`;
+                    statusEl.textContent = '{{plzscan}}';
                     startQRTimer();
                     checkToken();
                 })
                 .catch(error => {
-                    statusEl.textContent = 'QR 코드 생성 실패: ' + error.response.data.error;
+                    statusEl.textContent = '{{fail}}: ' + error.response.data.error;
                 });
         }
 
@@ -116,7 +115,7 @@
             clearInterval(qrTimer);
             qrTimer = setInterval(() => {
                 remainingTime--;
-                timerEl.textContent = `남은 시간: ${remainingTime}초`;
+                timerEl.textContent = `{{rm}}: ${remainingTime}`;
                 
                 if (remainingTime <= 0) {
                     clearInterval(qrTimer);
@@ -134,25 +133,24 @@
                         if (response.data.type === 'success') {
                             clearInterval(qrTimer);
                             clearInterval(tokenCheckTimer);
-                            statusEl.textContent = '로그인 성공!';
+                            statusEl.textContent = '{{sus}}';
                             responseDataEl.style.display = 'block';
                             responseContentEl.textContent = JSON.stringify(response.data, null, 2);
                         }
                         else if (response.data.error && response.data.new_url) {
-                            // Generate new QR code
                             QRCode.toCanvas(qrCanvas, response.data.new_url, { width: 250 }, function (error) {
                                 if (error) {
-                                    statusEl.textContent = 'QR 코드 생성 실패';
+                                    statusEl.textContent = '{{fail}}';
                                     console.error(error);
                                 }
                             });
-                            loginUrlEl.innerHTML = `<a href="${response.data.new_url}" target="_blank">직접 로그인하기</a>`;
-                            statusEl.textContent = 'QR 코드 만료. 새 QR 코드가 생성되었습니다.';
+                            loginUrlEl.innerHTML = `<a href="${response.data.new_url}" target="_blank">{{md}}</a>`;
+                            statusEl.textContent = '{{end}}';
                             startQRTimer();
                         }
                     })
                     .catch(error => {
-                        statusEl.textContent = '토큰 확인 중 오류 발생: ' + error;
+                        statusEl.textContent = '{{tf}}: ' + error;
                     });
             }, 2000);
         }
