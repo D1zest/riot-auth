@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import requests
+from urllib.parse import unquote
 import uuid
 import time
 
@@ -7,6 +8,14 @@ app = Flask(__name__)
 
 TOKEN_RETRY_INTERVAL = 2
 QR_REGENERATION_INTERVAL = 60
+
+def translate_text(text, language):
+    if language == "ko-KR":
+        return text
+    url = 'https://playentry.org/api/expansionBlock/papago/translate/n2mt'
+    params = {'text': text, 'target': language.split('-')[0], 'source': 'auto'}
+    response = requests.get(url, params=params).json()
+    return response.get('translatedText', text)
 
 def new_session():
     session = requests.Session()
@@ -176,11 +185,33 @@ def fetch_token():
 
 @app.route('/')
 def index():
-    return 'hello'
+    return render_template('index.html')
 
-@app.route('/auth')
-def auth():
-    return render_template('auth.html')
+@app.route('/auth/<lang>/')
+def auth(lang):
+    language = unquote(lang)
+    title = translate_text('로그인', language)
+    dis = translate_text('라이엇 모바일을 통해 로그인', language)
+    wait = translate_text('로그인 Url 생성중..', language)
+    fail = translate_text('로그인 Url 생성 실패', language)
+    md = translate_text('모바일 환경에서 바로 로그인하기', language)
+    plzscan = translate_text('QR코드를 스캔하거나 Url에 방문해주세요.', language)
+    end = translate_text('로그인 Url만료 새 Url을 생성합니다.', language)
+    rm = translate_text('남은 시간', language)
+    tf = translate_text('토큰 확인 중 오류 발생', language)
+    sus = translate_text('로그인 완료', language)
+
+    return render_template('auth.html',
+                           title = title,
+                           dis = dis,
+                           wait = wait,
+                           fail = fail,
+                           md = md,
+                           plzscan = plzscan,
+                           end = end,
+                           rm = rm,
+                           tf = tf,
+                           sus = sus)
 
 if __name__ == '__main__':
     app.run(debug=True)
