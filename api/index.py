@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import requests
 from urllib.parse import unquote
-import asyncio
-
 import uuid
 import time
 
@@ -11,39 +9,19 @@ app = Flask(__name__)
 TOKEN_RETRY_INTERVAL = 2
 QR_REGENERATION_INTERVAL = 60
 
-from easygoogletranslate import EasyGoogleTranslate
-
-async def translate_text(text, language):
+def translate_text(text, language):
     if language == "ko":
         return text
-    
+    from easygoogletranslate import EasyGoogleTranslate
+
     translator = EasyGoogleTranslate(
-        source_language='ko',
-        target_language=language,
+        source_language = 'ko',
+        target_language = language,
         timeout=10
     )
 
-    result = await asyncio.to_thread(translator.translate, text)
+    result = translator.translate(text)
     return result
-
-async def translate_all(language):
-    titles = [
-        '로그인',
-        '라이엇 모바일을 통해 로그인',
-        '로그인 Url 생성중..',
-        '로그인 Url 생성 실패',
-        '모바일 환경에서 바로 로그인하기',
-        'QR코드를 스캔하거나 Url에 방문해주세요.',
-        '로그인 Url만료 새 Url을 생성합니다.',
-        '남은 시간',
-        '토큰 확인 중 오류 발생',
-        '로그인 완료'
-    ]
-    
-    translation_tasks = [translate_text(title, language) for title in titles]
-    translations = await asyncio.gather(*translation_tasks)
-
-    return translations
 
 def new_session():
     session = requests.Session()
@@ -216,23 +194,31 @@ def index():
     return render_template('index.html')
 
 @app.route('/auth/<lang>/')
-async def auth(lang):
+def auth(lang):
     language = unquote(lang)
     
-    translations = await translate_all(language)    
-    title, dis, wait, fail, md, plzscan, end, rm, tf, sus = translations
+    title = translate_text('로그인', language)
+    dis = translate_text('라이엇 모바일을 통해 로그인', language)
+    wait = translate_text('로그인 Url 생성중..', language)
+    fail = translate_text('로그인 Url 생성 실패', language)
+    md = translate_text('모바일 환경에서 바로 로그인하기', language)
+    plzscan = translate_text('QR코드를 스캔하거나 Url에 방문해주세요.', language)
+    end = translate_text('로그인 Url만료 새 Url을 생성합니다.', language)
+    rm = translate_text('남은 시간', language)
+    tf = translate_text('토큰 확인 중 오류 발생', language)
+    sus = translate_text('로그인 완료', language)
 
     return render_template('auth.html',
-                           title=title,
-                           dis=dis,
-                           wait=wait,
-                           fail=fail,
-                           md=md,
-                           plzscan=plzscan,
-                           end=end,
-                           rm=rm,
-                           tf=tf,
-                           sus=sus)
+                           title = title,
+                           dis = dis,
+                           wait = wait,
+                           fail = fail,
+                           md = md,
+                           plzscan = plzscan,
+                           end = end,
+                           rm = rm,
+                           tf = tf,
+                           sus = sus)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
